@@ -1,4 +1,5 @@
 #include "Config.h"
+#include "sim800.h"
 //=======================================================================
 
 //========================== DEFINITIONS ================================
@@ -17,17 +18,12 @@
 #define PL_PIN 19  // кнопкa Плюс
 #define MN_PIN 5   // кнопкa Минус
 
-#define DS_SNS 4   // ds18b20
-#define BAT 34     // Аккумулятор
-#define TX_PIN 17  // SIM800_TX
-#define RX_PIN 16  // SIM800_RX
-#define HX_DT 25   // HX711_DT
-#define HX_CLK 26  // HX711_CLK
-
-// I2C Adress
-#define BME_ADR 0x76
-#define OLED_ADR 0x3C
-#define RTC_ADR 0x68
+#define DS_SNS 4  // ds18b20
+#define BAT 34    // Аккумулятор
+#define TX_PIN 17 // SIM800_TX
+#define RX_PIN 16 // SIM800_RX
+#define HX_DT 25  // HX711_DT
+#define HX_CLK 26 // HX711_CLK
 //=======================================================================
 
 //============================== STRUCTURES =============================
@@ -39,14 +35,7 @@ Flag ST;
 //=======================================================================
 
 //============================ GLOBAL VARIABLES =========================
-String _response = "";
-
-// uint32_t ADC_buff[4] = {0};
-
-// uint8_t task_counter = 0, task_cnt_10S = 0;
-// float Calibration_Factor_Of_Load_cell = 23850; //-31;
-
-// uint32_t tmr = 0;
+uint8_t tim_sec = 0;
 uint32_t now;
 
 uint16_t tmrSec = 0;
@@ -56,9 +45,6 @@ bool st = false; // menu state ()selection
 
 char charPhoneNumber[11];
 
-// String currStr = "";
-boolean isStringMessage = false;
-
 RTC_DATA_ATTR int bootCount = 0;
 //================================ OBJECTs =============================
 #define OLED_SOFT_BUFFER_64 // MCU buffer
@@ -67,9 +53,7 @@ GyverOLED<SSD1306_128x64> disp;
 // SSD1306 display(0x3c, 21, 22);
 // int frameCount = 4;
 
-// GyverOS<2> os;
-HX711 scale; //
-HardwareSerial SIM800(1);
+HX711 scale;     //
 MicroDS3231 RTC; // 0x68
 GyverBME280 bme; // 0x76
 Button btUP(PL_PIN, INPUT_PULLUP);
@@ -92,26 +76,16 @@ SemaphoreHandle_t uart_mutex;
 //=======================================================================
 
 //================================ PROTOTIPs =============================
-void I2C_Scanning(void);
 void StartingInfo(void);
-void DisplayUPD(void);
 void ButtonHandler(void);
-void BeekeeperConroller(void);
 void DisplayHandler(uint8_t item);
 void printPointer(uint8_t pointer);
-String waitResponse(void);
-String sendATCommand(String cmd, bool waiting);
-void sendSMS(String phone, String message);
 void GetBatVoltage(void);
-void IncommingRing(void);
 void GetDSData(void);
 void GetBMEData(void);
 void GetWeight(void);
 void ShowDBG(void);
 void Notification(void);
-
-// void Task500ms(void);
-// void Task1000msDBG(void);
 
 void TaskCore0(void *pvParameters);
 void TaskCore1(void *pvParameters);
@@ -128,13 +102,11 @@ void TaskCore0(void *pvParameters)
 
   for (;;)
   {
-    // if (!ST.HX711_Block)
-    // {
-    //   GetBMEData();
-    //   GetDSData();
-    //   if (ST.Calibration == EEP_DONE)
-    //     GetWeight();
-    // }
+    if (!ST.Call_Block)
+    {
+      if (ST.Calibration == EEP_DONE)
+        GetWeight();
+    }
     vTaskDelay(500 / portTICK_RATE_MS);
   }
 }
@@ -145,11 +117,12 @@ void TaskCore1(void *pvParameters)
   Serial.println(xPortGetCoreID());
   for (;;)
   {
-    // Notification();
-    // ButtonHandler();
     IncommingRing();
 
-    vTaskDelay(100 / portTICK_PERIOD_MS);
+    if (!ST.Call_Block)
+      ButtonHandler();
+
+    vTaskDelay(50 / portTICK_PERIOD_MS);
   }
 }
 
@@ -161,33 +134,11 @@ void Task500ms(void *pvParameters)
   while (true)
   {
     Clock = RTC.getTime();
+    if (System.DispState)
+      disp.update();
+    Notification();
 
-    // if (System.DispState)
-    // {
-    //   DisplayHandler(System.DispMenu);
-
-    //   if (tmrSec < 59)
-    //   {
-    //     tmrSec++;
-    //   }
-    //   else
-    //   {
-    //     tmrSec = 0;
-    //     tmrMin++;
-    //   }
-    // }
-    // else
-    //   disp.setPower(false);
-
-    // if DISP_TIME
-    // {
-    //   System.DispState = false;
-    //   Serial.println("TimeOut: Display - OFF");
-    //   tmrMin = 0;
-    //   tmrSec = 0;
-    //   disp_ptr = 0;
-    // }
-    vTaskDelay(300 / portTICK_RATE_MS);
+    vTaskDelay(500 / portTICK_RATE_MS);
   }
 }
 
@@ -199,61 +150,58 @@ void Task1000ms(void *pvParameters)
   Serial.println(xPortGetCoreID());
   while (1)
   {
-    GetBatVoltage();
+    if (tim_sec == 5)
+    {
+      if (!ST.Call_Block)
+      {
+        GetBatVoltage();
+        GetBMEData();
+        GetDSData();
+        GetLevel();
+      }
+      tim_sec = 0;
+    }
 
-    // #ifdef DEBUG
-    //     if (ST.debug)
-    //     {
-    //       xSemaphoreTake(uart_mutex, portMAX_DELAY);
-    //       ShowDBG();
-    //       xSemaphoreGive(uart_mutex);
-    //     }
-    // #endif
+    if (System.DispState)
+    {
+      DisplayHandler(System.DispMenu);
 
+      if (tmrSec < 59)
+      {
+        tmrSec++;
+      }
+      else
+      {
+        tmrSec = 0;
+        tmrMin++;
+      }
+    }
+    else
+      disp.setPower(false);
+
+    if DISP_TIME
+    {
+      System.DispState = false;
+      Serial.println("TimeOut: Display - OFF");
+      tmrMin = 0;
+      tmrSec = 0;
+      disp_ptr = 0;
+    }
+
+#ifdef DEBUG
+    if (ST.debug)
+    {
+      // xSemaphoreTake(uart_mutex, portMAX_DELAY);
+      ShowDBG();
+      // xSemaphoreGive(uart_mutex);
+    }
+#endif
+    tim_sec++;
     vTaskDelay(1000 / portTICK_PERIOD_MS);
   }
 }
 
 //========================================================================
-
-//=======================   I2C Scanner     =============================
-void I2C_Scanning(void)
-{
-  byte error, address;
-  int nDevices;
-
-  Serial.println("Scanning...");
-
-  nDevices = 0;
-  for (address = 8; address < 127; address++)
-  {
-    Wire.beginTransmission(address);
-    error = Wire.endTransmission();
-
-    if (error == 0)
-    {
-      Serial.print("I2C device found at address 0x");
-      if (address < 16)
-        Serial.print("0");
-      Serial.print(address, HEX);
-      Serial.println(" !");
-
-      nDevices++;
-    }
-    else if (error == 4)
-    {
-      Serial.print("Unknow error at address 0x");
-      if (address < 16)
-        Serial.print("0");
-      Serial.println(address, HEX);
-    }
-  }
-  if (nDevices == 0)
-    Serial.println("No I2C devices found\n");
-  else
-    Serial.println("done\n");
-}
-//=======================================================================
 /*
 Reading Calibration data from EEPROM. Calibration metodic
 * Calibration State
@@ -562,18 +510,10 @@ void setup()
   Serial.println(F("Battery Init...Done"));
 
   // SIM800 INIT
+  delay(1000);
+  sim800_init(9600, 16, 17);
+  sim800_conf();
 
-  delay(2000);
-  SIM800.begin(9600, SERIAL_8N1, RX_PIN, TX_PIN);
-
-  sendATCommand("AT", true);
-  sendATCommand("AT+CMGDA=\"DEL ALL\"", true);
-
-  _response = sendATCommand("AT+CMGF=1;&W", true);
-  _response = sendATCommand("AT+IFC=1, 1", true);
-  _response = sendATCommand("AT+CPBS=\"SM\"", true);
-  _response = sendATCommand("AT+CLIP=1", true); // AON Enable
-  _response = sendATCommand("AT+CNMI=1,2,2,1,0", true);
   // delay(10);
 
   disp.clear();
@@ -582,11 +522,10 @@ void setup()
   GetBMEData();
   GetDSData();
   GetWeight();
+  GetLevel();
 
   disp.update();
 
-  // os.attach(0, task500ms, 500);
-  // os.attach(1, task1000msDBG, 1000);
   uart_mutex = xSemaphoreCreateMutex();
   // FreeRTOS
   // Create Task. Running to core 0
@@ -640,17 +579,24 @@ void loop() {}
 //========================================================================
 void Notification()
 {
-  if (ST.SMS1 && Clock.hour == Config.UserSendTime1 && Clock.minute == 40 && Clock.second == 0)
+  char buf[128] = "";
+  if (ST.SMS1 && Clock.hour == Config.UserSendTime1 && Clock.minute == 30 && Clock.second == 0)
   {
+    Serial.println("Send Notification: SMS1");
+    SendUserSMS();
 
-    Serial.println("Send SMS1");
+    delay(200);
+
     ST.SMS1 = false;
     ST.SMS2 = true;
   }
 
   if (ST.SMS2 && Clock.hour == Config.UserSendTime2 && Clock.minute == 0 && Clock.second == 0)
   {
-    Serial.println("Send SMS2");
+    Serial.println("Send Notification: SMS2");
+    SendUserSMS();
+
+    delay(200);
     ST.SMS1 = true;
     ST.SMS2 = false;
   }
@@ -738,9 +684,8 @@ void ButtonHandler()
     if (System.DispMenu == Menu)
       disp_ptr = constrain(disp_ptr + 1, 0, ITEMS - 1);
     else
-      IncommingRing();
 
-    Serial.printf("ptr:%d", disp_ptr);
+      Serial.printf("ptr:%d", disp_ptr);
     Serial.println();
   }
 
@@ -790,113 +735,6 @@ void ButtonHandler()
 
     Serial.printf("ptr:%d", disp_ptr);
     Serial.println();
-  }
-
-  if (btSET.hasClicks(2))
-  {
-    ST.debug == false ? ST.debug = true : ST.debug = false;
-    //   Serial.println("Has double cliks");
-    //   Serial.println("---------------------");
-
-    //   String sms = "Bec: ";
-
-    //   sms += String(sensors.kg, 1);
-    //   sms += " Kg";
-    //   sms += "\n";
-    //   sms += "B: ";
-    //   sms += sensors.voltage;
-    //   sms += " %";
-    //   sms += "\n";
-    //   sms += "T1: ";
-    //   sms += String(sensors.dsT, 1);
-    //   sms += " *C";
-    //   sms += "\n";
-    //   sms += "T2: ";
-    //   sms += String(sensors.bmeT, 1);
-    //   sms += " *C";
-    //   sms += "\n";
-    //   sms += "H: ";
-    //   sms += sensors.bmeH;
-    //   sms += " %";
-    //   sms += "\n";
-    //   sms += "Pr: ";
-    //   sms += sensors.bmeP_mmHg;
-
-    //   Serial.println(sms);
-    //   Serial.println("---------------------");
-
-    //   sendSMS(Config.phone, sms);
-  }
-}
-/*******************************************************************************************************/
-
-/*******************************************************************************************************/
-void IncommingRing()
-{
-  if (SIM800.available())
-  {
-    // xSemaphoreTake(uart_mutex, portMAX_DELAY);
-    _response = waitResponse();
-    _response.trim();
-    Serial.println(_response);
-
-    // if (_response.startsWith("RING"))
-    // {
-    //   ST.HX711_Block = true;
-    //   // char buf[128] = "";
-
-    //   // int phoneindex = _response.indexOf("+CLIP: \"");
-    //   // String innerPhone = "";
-
-    //   // if (phoneindex >= 0)
-    //   // {
-    //   //   phoneindex += 8;
-    //   //   innerPhone = _response.substring(phoneindex, _response.indexOf("\"", phoneindex));
-    //   // Serial.println("Number: " + innerPhone);
-    //   // delay(500);
-    //   sendATCommand("ATH", true);
-
-    //   // delay(500);
-    //   // strcat(buf, "W:");
-    //   // dtostrf(sensors.kg, 3, 1, buf);
-    //   // strcat(buf, "kg\n");
-    //   // strcat(buf, "T1:");
-    //   // dtostrf(sensors.dsT, 3, 1, buf);
-    //   // strcat(buf, "\n");
-    //   // strcat(buf, "T2:");
-    //   // dtostrf(sensors.bmeT, 3, 1, buf);
-    //   // strcat(buf, "\n");
-    //   // strcat(buf, "H:");
-    //   // itoa(sensors.bmeH, buf + strlen(buf), DEC);
-    //   // strcat(buf, "\n");
-    //   // strcat(buf, "P:");
-    //   // itoa(sensors.bmeP_mmHg, buf + strlen(buf), DEC);
-    //   // Serial.println(buf);
-
-    //   // String smska = "W: ";
-    //   // smska += String(sensors.kg, 1);
-    //   // smska += " Kg\n";
-    //   // // smska += "\n";
-    //   // smska += "T1:" + String(sensors.dsT, 1) + "\n";
-    //   // // smska += String(sensors.dsT, 1);
-    //   // // smska += "\n";
-    //   // smska += "T2:" + String(sensors.bmeT, 1) + "\n";
-    //   // // smska += String(sensors.bmeT, 1);
-    //   // // smska += "\n";
-    //   // smska += "H:";
-    //   // smska += sensors.bmeH;
-    //   // smska += "\n";
-    //   // smska += "Pr:";
-    //   // smska += sensors.bmeP_mmHg;
-    //   // Serial.println(smska);
-    //   // sendSMS(innerPhone, smska); // смс
-    //   // delay(2000);
-
-    //   // }
-    // }
-    // else
-    //   ST.HX711_Block = false;
-    // xSemaphoreGive(uart_mutex);
   }
 }
 /*******************************************************************************************************/
@@ -953,7 +791,7 @@ void DisplayHandler(uint8_t item)
         "  Выход:\r\n"));
 
     printPointer(disp_ptr); // Show pointer
-    disp.update();
+    // disp.update();
     break;
   }
 
@@ -986,7 +824,7 @@ void DisplayHandler(uint8_t item)
     sprintf(dispbuf, "H:%02d            P:%003d", sensors.bmeH, sensors.bmeP_mmHg);
     disp.setCursor(0, 7);
     disp.print(dispbuf);
-    disp.update();
+    // disp.update();
     break;
   }
 
@@ -1557,53 +1395,6 @@ void printPointer(uint8_t pointer)
 {
   disp.setCursor(0, pointer);
   disp.print(">");
-}
-/*******************************************************************************************************/
-
-/*******************************************************************************************************/
-String waitResponse()
-{
-  String _resp = "";
-  // long _timeout = millis() + 10000;
-  // while (!SIM800.available() && millis() < _timeout)
-  // {
-  // };
-  if (SIM800.available())
-  {
-    _resp = SIM800.readString();
-  }
-  else
-  {
-    // Serial.println("Timeout...");
-  }
-  return _resp;
-}
-/*******************************************************************************************************/
-
-/*******************************************************************************************************/
-String sendATCommand(String cmd, bool waiting)
-{
-  String _resp = "";
-  // Serial.println(cmd);
-  SIM800.println(cmd);
-  if (waiting)
-  {
-    _resp = waitResponse();
-    if (_resp.startsWith(cmd))
-    {
-      _resp = _resp.substring(_resp.indexOf("\r", cmd.length()) + 2);
-    }
-    // Serial.println(_resp);
-  }
-  return _resp;
-}
-/*******************************************************************************************************/
-
-/*******************************************************************************************************/
-void sendSMS(String phone, String message)
-{
-  sendATCommand("AT+CMGS=\"" + phone + "\"", true);
-  sendATCommand(message + "\r\n" + (String)((char)26), true); // 26
 }
 /*******************************************************************************************************/
 

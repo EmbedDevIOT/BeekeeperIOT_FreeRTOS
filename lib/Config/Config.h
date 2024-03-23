@@ -7,7 +7,6 @@
 #include "HardwareSerial.h"
 #include <EEPROM.h>
 #include <microDS3231.h>
-// #include "SoftwareSerial.h"
 #include <Wire.h>
 #include <GyverBME280.h>
 
@@ -36,10 +35,16 @@
 
 #define BAT_MIN 30
 
+// I2C Adress
+#define BME_ADR 0x76
+#define OLED_ADR 0x3C
+#define RTC_ADR 0x68
+
 //=======================================================================
 extern MicroDS3231 RTC;
 extern DateTime Clock;
 //=======================================================================
+
 //========================== ENUMERATION ================================
 //=======================================================================
 enum menu
@@ -115,6 +120,7 @@ struct SNS
   float g_eep = 2.31;
   float grms = 10.5;
   float g_contain = 0.0; // Save and Reading from EEPROM
+  int signal = 0;
   uint32_t voltage = 0;
 };
 extern SNS sensors;
@@ -151,5 +157,6 @@ void GetChipID(void);
 void CheckSystemState(void);
 void DebugControl(void);
 void SystemFactoryReset(void);
+void I2C_Scanning(void);
 //============================================================================
 #endif // _Config_H
