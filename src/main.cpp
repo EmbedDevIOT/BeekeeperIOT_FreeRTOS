@@ -6,7 +6,10 @@
 #define uS_TO_S_FACTOR 1000000 /* Conversion factor for micro seconds to seconds */
 #define TIME_TO_SLEEP 5        /* Time ESP32 will go to sleep (in seconds) */
 
-// #define EB_CLICK_TIME 100 // Button timeout
+#define EB_DEB_TIME 10 // таймаут гашения дребезга кнопки (кнопка)
+
+#define EB_CLICK_TIME 50 // Button timeout
+
 #define DISP_TIME (tmrMin == 10 && tmrSec == 0)
 #define ITEMS 5 // Main Menu Items
 
@@ -95,6 +98,7 @@ void Task1000ms(void *pvParameters);
 //=======================================================================
 
 //=======================================================================
+// Core 0
 void TaskCore0(void *pvParameters)
 {
   Serial.print("Task1 running on core ");
@@ -111,6 +115,7 @@ void TaskCore0(void *pvParameters)
   }
 }
 
+// Core 0
 void TaskCore1(void *pvParameters)
 {
   Serial.print("Task2 running on core ");
@@ -122,11 +127,11 @@ void TaskCore1(void *pvParameters)
     if (!ST.Call_Block)
       ButtonHandler();
 
-    vTaskDelay(50 / portTICK_PERIOD_MS);
+    vTaskDelay(100 / portTICK_PERIOD_MS);
   }
 }
 
-// Every 500ms Read RTC Data and Display control (Update/ON/OFF)
+// Core 1 | Every 1000ms Read RTC Data and Display control (Update/ON/OFF)
 void Task500ms(void *pvParameters)
 {
   Serial.print("Task300 running on core ");
@@ -134,11 +139,9 @@ void Task500ms(void *pvParameters)
   while (true)
   {
     Clock = RTC.getTime();
-    if (System.DispState)
-      disp.update();
     Notification();
 
-    vTaskDelay(500 / portTICK_RATE_MS);
+    vTaskDelay(1000 / portTICK_RATE_MS);
   }
 }
 
@@ -157,7 +160,7 @@ void Task1000ms(void *pvParameters)
         GetBatVoltage();
         GetBMEData();
         GetDSData();
-        GetLevel();
+        // GetLevel();
       }
       tim_sec = 0;
     }
@@ -189,7 +192,7 @@ void Task1000ms(void *pvParameters)
     }
 
 #ifdef DEBUG
-    if (ST.debug)
+    if (ST.debug || !ST.Call_Block)
     {
       // xSemaphoreTake(uart_mutex, portMAX_DELAY);
       ShowDBG();
@@ -459,7 +462,7 @@ void StartingInfo()
 void setup()
 {
   // Firmware version
-  Config.firmware = "0.9.7b";
+  Config.firmware = "0.9.8";
   // UART Init
   Serial.begin(UARTSpeed);
   Serial1.begin(MODEMSpeed);
@@ -583,17 +586,21 @@ void Notification()
   if (ST.SMS1 && Clock.hour == Config.UserSendTime1 && Clock.minute == 30 && Clock.second == 0)
   {
     Serial.println("Send Notification: SMS1");
+    ST.Call_Block = true;
     SendUserSMS();
 
     delay(200);
 
     ST.SMS1 = false;
     ST.SMS2 = true;
+    ST.Call_Block = false;
   }
 
   if (ST.SMS2 && Clock.hour == Config.UserSendTime2 && Clock.minute == 0 && Clock.second == 0)
   {
     Serial.println("Send Notification: SMS2");
+    ST.Call_Block = true;
+
     SendUserSMS();
 
     delay(200);
@@ -615,6 +622,7 @@ void ButtonHandler()
 
   if (btSET.click())
   {
+    Serial.println("Btn SET click");
     if (System.DispMenu == Action)
     {
       System.DispMenu = Menu;
@@ -628,6 +636,19 @@ void ButtonHandler()
         {
           System.DispMenu = Menu;
           Serial.println("General Menu:");
+          disp.clear();
+          disp.home();
+          disp.setScale(1);
+          disp.print(F(
+              "  Время:\r\n"
+              "  Калибровка:\r\n"
+              "  Оповещения:\r\n"
+              // "  Аккумулятор:\r\n"
+              "  Номер СМС:\r\n"
+              "  Выход:\r\n"));
+
+          printPointer(disp_ptr); // Show pointer
+          disp.update();
           st = true;
         }
         else
@@ -679,6 +700,8 @@ void ButtonHandler()
 
   if (btUP.click() || btUP.hold())
   {
+    Serial.println("Btn UP click");
+
     tmrMin = 0;
     tmrSec = 0;
     if (System.DispMenu == Menu)
@@ -727,6 +750,7 @@ void ButtonHandler()
 
   if (btDWN.click() || btDWN.hold())
   {
+    Serial.println("Btn DWN click");
     tmrMin = 0;
     tmrSec = 0;
 
@@ -791,7 +815,7 @@ void DisplayHandler(uint8_t item)
         "  Выход:\r\n"));
 
     printPointer(disp_ptr); // Show pointer
-    // disp.update();
+    disp.update();
     break;
   }
 
@@ -824,7 +848,7 @@ void DisplayHandler(uint8_t item)
     sprintf(dispbuf, "H:%02d            P:%003d", sensors.bmeH, sensors.bmeP_mmHg);
     disp.setCursor(0, 7);
     disp.print(dispbuf);
-    // disp.update();
+    disp.update();
     break;
   }
 
@@ -1395,6 +1419,7 @@ void printPointer(uint8_t pointer)
 {
   disp.setCursor(0, pointer);
   disp.print(">");
+  // disp.update();
 }
 /*******************************************************************************************************/
 

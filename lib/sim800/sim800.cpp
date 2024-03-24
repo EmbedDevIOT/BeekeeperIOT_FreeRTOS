@@ -145,15 +145,15 @@ void SendUserSMS()
 {
     char buf[128] = "";
 
-    strcat(buf, "Вес: ");
+    strcat(buf, "Bec: ");
     dtostrf(sensors.kg, 3, 1, buf + strlen(buf));
     strcat(buf, " kg\n");
     strcat(buf, "T1: ");
     dtostrf(sensors.dsT, 3, 1, buf + strlen(buf));
-    strcat(buf, " *С\n");
+    strcat(buf, " *C\n");
     strcat(buf, "T2: ");
     dtostrf(sensors.bmeT, 3, 1, buf + strlen(buf));
-    strcat(buf, " *С\n");
+    strcat(buf, " *C\n");
     strcat(buf, "H: ");
     itoa(sensors.bmeH, buf + strlen(buf), DEC);
     strcat(buf, " %\n");
@@ -163,7 +163,7 @@ void SendUserSMS()
     strcat(buf, "B: ");
     itoa(sensors.voltage, buf + strlen(buf), DEC);
     strcat(buf, " %\n");
-    strcat(buf, "Сигнал: ");
+    strcat(buf, "Signal: ");
     itoa(sensors.signal, buf + strlen(buf), DEC);
     strcat(buf, " %\n");
 
