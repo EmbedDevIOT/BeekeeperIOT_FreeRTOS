@@ -125,10 +125,10 @@ void TaskCore1(void *pvParameters)
   for (;;)
   {
     
-    xSemaphoreTake(call_mutex, portMAX_DELAY);
+    // xSemaphoreTake(call_mutex, portMAX_DELAY);
     if (!ST.Call_Block)
       ButtonHandler();
-    xSemaphoreTake(call_mutex, portMAX_DELAY);
+    // xSemaphoreTake(call_mutex, portMAX_DELAY);
 
     vTaskDelay(100 / portTICK_PERIOD_MS);
   }
@@ -141,11 +141,11 @@ void Task500ms(void *pvParameters)
   Serial.println(xPortGetCoreID());
   while (true)
   {
-    xSemaphoreTake(call_mutex, portMAX_DELAY);
+    // xSemaphoreTake(call_mutex, portMAX_DELAY);
     IncommingRing();
     Notification();
     Clock = RTC.getTime();
-    xSemaphoreTake(call_mutex, portMAX_DELAY);
+    // xSemaphoreTake(call_mutex, portMAX_DELAY);
 
     vTaskDelay(500 / portTICK_RATE_MS);
   }
