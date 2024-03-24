@@ -1,20 +1,15 @@
 #include "Config.h"
 #include "sim800.h"
+#include "button.h"
+
 //=======================================================================
 
 //========================== DEFINITIONS ================================
 #define uS_TO_S_FACTOR 1000000 /* Conversion factor for micro seconds to seconds */
 #define TIME_TO_SLEEP 5        /* Time ESP32 will go to sleep (in seconds) */
 
-#define EB_DEB_TIME 10 // таймаут гашения дребезга кнопки (кнопка)
-
-#define EB_CLICK_TIME 50 // Button timeout
-
 #define DISP_TIME (tmrMin == 10 && tmrSec == 0)
 #define ITEMS 5 // Main Menu Items
-
-#define FILTER_STEP 5
-#define FILTER_COEF 0.05
 
 // GPIO PINs
 #define SET_PIN 18 // кнопкa Выбор
@@ -76,7 +71,6 @@ TaskHandle_t Task3; // Task pinned to Core 1 (every 1000 ms)
 TaskHandle_t Task4; // Task pinned to Core 0 (every 5000 ms)
 // FreeRTOS create Mutex link
 SemaphoreHandle_t call_mutex;
-
 //=======================================================================
 
 //================================ PROTOTIPs =============================
@@ -96,7 +90,6 @@ void TaskCore1(void *pvParameters);
 void Task500ms(void *pvParameters);
 void Task1000ms(void *pvParameters);
 void Task5s(void *pvParameters);
-
 //=======================================================================
 
 //=======================================================================
@@ -124,11 +117,8 @@ void TaskCore1(void *pvParameters)
   Serial.println(xPortGetCoreID());
   for (;;)
   {
-    
-    // xSemaphoreTake(call_mutex, portMAX_DELAY);
     if (!ST.Call_Block)
       ButtonHandler();
-    // xSemaphoreTake(call_mutex, portMAX_DELAY);
 
     vTaskDelay(100 / portTICK_PERIOD_MS);
   }
@@ -158,17 +148,17 @@ void Task1000ms(void *pvParameters)
   Serial.println(xPortGetCoreID());
   while (1)
   {
-    // if (tim_sec == 5)
-    // {
-    //   if (!ST.Call_Block)
-    //   {
-    //     GetBatVoltage();
-    //     GetBMEData();
-    //     GetDSData();
-    //     // GetLevel();
-    //   }
-    //   tim_sec = 0;
-    // }
+    // 1 Min Timer
+    if (tim_sec < 59)
+      tim_sec++;
+    else
+    {
+      tim_sec = 0;
+      if (!ST.Call_Block)
+      {
+        GetLevel();
+      }
+    }
 
     if (System.DispState)
     {
@@ -197,14 +187,14 @@ void Task1000ms(void *pvParameters)
     }
 
 #ifdef DEBUG
-    if (ST.debug || !ST.Call_Block)
+    if (!ST.Call_Block)
     {
       // xSemaphoreTake(uart_mutex, portMAX_DELAY);
       ShowDBG();
       // xSemaphoreGive(uart_mutex);
     }
 #endif
-    // tim_sec++;
+
     vTaskDelay(1000 / portTICK_PERIOD_MS);
   }
 }
@@ -218,7 +208,6 @@ void Task5s(void *pvParametrs)
       GetBatVoltage();
       GetBMEData();
       GetDSData();
-      // GetLevel();
     }
     vTaskDelay(5000 / portTICK_PERIOD_MS);
   }
@@ -481,8 +470,8 @@ void StartingInfo()
 //=======================       SETUP     ===============================
 void setup()
 {
-  // Firmware version
-  Config.firmware = "0.9.8";
+  Config.firmware = "0.9.9";
+  Config.fwdate = "25.03.24";
   // UART Init
   Serial.begin(UARTSpeed);
   Serial1.begin(MODEMSpeed);
@@ -492,8 +481,7 @@ void setup()
   disp.setContrast(255);
   disp.clear();
   Serial.println(F("OLED...Done"));
-  // Show starting info (Firmware)
-
+  // Show starting info
   StartingInfo();
   // RTC INIT
   RTC.begin();
@@ -504,20 +492,6 @@ void setup()
   }
   Clock = RTC.getTime();
   Serial.println(F("RTC...Done"));
-
-  // set Time (First Start)
-  // now = millis();
-  // while (millis() - now < 2000)
-  // {
-  //   btSET.tick();
-
-  //   if (btSET.press())
-  //   {
-  //     RTC.setTime(COMPILE_TIME);
-  //     Serial.println("Установка времени компиляции");
-  //   }
-  // }
-
   // HX711 Init
   scale.begin(HX_DT, HX_CLK);
   // EEPROM Init
@@ -532,13 +506,14 @@ void setup()
   pinMode(BAT, INPUT);
   Serial.println(F("Battery Init...Done"));
 
+  // btSET.setDebTimeout(20);
+  // btUP.setDebTimeout(20);
+  // btDWN.setDebTimeout(20);
   // SIM800 INIT
   delay(1000);
   sim800_init(9600, 16, 17);
   sim800_conf();
-
-  // delay(10);
-
+  Serial.println(F("SIM800 Init...Done"));
   disp.clear();
 
   GetBatVoltage();
@@ -602,7 +577,7 @@ void setup()
       &Task4,
       0);
 
-  Serial.println(F("FreeRTOS task create...Done"));
+  Serial.println(F("FreeRTOS started...Done"));
 }
 
 //=========================      M A I N       ===========================
@@ -636,6 +611,7 @@ void Notification()
     delay(200);
     ST.SMS1 = true;
     ST.SMS2 = false;
+    ST.Call_Block = false;
   }
 }
 //========================================================================
@@ -643,8 +619,6 @@ void Notification()
 //========================================================================
 void ButtonHandler()
 {
-  uint16_t value = 0;
-
   btSET.tick();
   btUP.tick();
   btDWN.tick();
@@ -745,37 +719,7 @@ void ButtonHandler()
   if (btVirt.click() && System.DispMenu == Action)
   {
     Serial.println("Set zero");
-    ST.HX711_Block = true;
-
-    char msg[50];
-
-    disp.clear();
-    disp.setScale(2);
-    disp.setCursor(0, 1);
-    disp.print(F(
-        " Установка \r\n"
-        "   нуля \r\n"
-        " подождите..  \r\n"));
-    disp.update();
-
-    sensors.units = scale.get_units(1) / 1000;
-    sensors.g_contain = sensors.units / -1;
-    delay(1000);
-
-    // now = millis();
-    // while (millis() - now < 5000)
-    // {
-    //   // Waiting 5 sec
-    // }
-
-    EEPROM.put(12, sensors.g_contain);
-    EEPROM.commit();
-
-    sprintf(msg, "WEIGHT: %0.1fg | W_UNIT: %0.4f  | W_EEP: %0.2f", sensors.kg, sensors.g_contain, sensors.g_eep);
-    Serial.println(msg);
-
-    ST.HX711_Block = false; // block task0;
-    disp.clear();
+    System.DispMenu = ZeroSet;
   }
 
   if (btDWN.click() || btDWN.hold())
@@ -791,9 +735,9 @@ void ButtonHandler()
     Serial.println();
   }
 }
-/*******************************************************************************************************/
+//========================================================================
 
-/*******************************************************************************************************/
+//========================================================================
 // Get Data from BME Sensor
 void GetBMEData()
 {
@@ -802,18 +746,19 @@ void GetBMEData()
   sensors.bmeP_hPa = bme.readPressure();
   sensors.bmeP_mmHg = (int)pressureToMmHg(sensors.bmeP_hPa);
 }
-/*******************************************************************************************************/
+//========================================================================
 
-/*******************************************************************************************************/
+//========================================================================
 // Get Data from DS18B20 Sensor
 void GetDSData()
 {
   ds18b20.requestTemperatures();
   sensors.dsT = ds18b20.getTempCByIndex(0);
 }
-/*******************************************************************************************************/
+//========================================================================
 
-/*******************************************************************************************************/
+
+//========================================================================
 // Get Data from HX711
 void GetWeight()
 {
@@ -823,9 +768,9 @@ void GetWeight()
   // user protect
   sensors.kg = constrain(sensors.kg, 0.0, 200.0);
 }
-/*******************************************************************************************************/
+//========================================================================
 
-/******************************************* MAIN_MENU *************************************************/
+//========================================================================
 void DisplayHandler(uint8_t item)
 {
   switch (item)
@@ -1434,9 +1379,36 @@ void DisplayHandler(uint8_t item)
     break;
   }
 
-  case Battery:
+  case ZeroSet:
   {
+    char msg[50];
+    ST.HX711_Block = true;
+    disp.clear();
+    disp.setScale(2);
+    disp.setCursor(0, 1);
+    disp.print(F(
+        " Установка \r\n"
+        "   нуля \r\n"
+        " подождите..  \r\n"));
+    disp.update();
 
+    sensors.units = scale.get_units(1) / 1000;
+    sensors.g_contain = sensors.units / -1;
+
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
+
+    EEPROM.put(12, sensors.g_contain);
+    EEPROM.commit();
+
+    sprintf(msg, "WEIGHT: %0.1fg | W_UNIT: %0.4f  | W_EEP: %0.2f", sensors.kg, sensors.g_contain, sensors.g_eep);
+    Serial.println(msg);
+
+    ST.HX711_Block = false; // block task0;
+    st = false;
+    System.DispMenu = Action;
+    disp_ptr = 0;
+
+    disp.clear();
     break;
   }
 
@@ -1444,16 +1416,18 @@ void DisplayHandler(uint8_t item)
     break;
   }
 }
-/*******************************************************************************************************/
+//========================================================================
+
+//========================================================================
 void printPointer(uint8_t pointer)
 {
   disp.setCursor(0, pointer);
   disp.print(">");
   // disp.update();
 }
-/*******************************************************************************************************/
+//========================================================================
 
-/*******************************************************************************************************/
+//========================================================================
 void GetBatVoltage(void)
 {
   uint32_t _mv = 0;
@@ -1487,8 +1461,9 @@ void GetBatVoltage(void)
   }
   sensors.voltage = _mv;
 }
-/*******************************************************************************************************/
+//========================================================================
 
+//========================================================================
 void ShowDBG()
 {
   char message[52];
@@ -1507,6 +1482,8 @@ void ShowDBG()
   sprintf(message, "WEIGHT: %0.2fg | W_CAL: %0.5fg  | W_EEP: %0.2f", sensors.kg, sensors.g_contain, sensors.g_eep);
   Serial.println(message);
   sprintf(message, "BAT: %003d", sensors.voltage);
+  Serial.println(message);
+  sprintf(message, "SIM800 Signal: %d", sensors.signal);
   Serial.println(message);
   sprintf(message, "EEPROM: SMS_1 %02d | SMS_2 %02d", Config.UserSendTime1, Config.UserSendTime2);
   Serial.println(message);

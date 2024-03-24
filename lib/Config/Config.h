@@ -14,6 +14,12 @@
 #include <DallasTemperature.h>
 
 #include "HX711.h"
+
+#define EB_DEB_TIME 20     
+#define EB_CLICK_TIME 50   
+#define EB_HOLD_TIME 600    
+#define EB_STEP_TIME 200    
+
 #include <EncButton.h>
 #include <GyverOLED.h>
 
@@ -55,7 +61,7 @@ enum menu
   Calib,
   Notifycation,
   SMS_NUM,
-  Battery
+  ZeroSet
 };
 
 // MAPing EEPROM
@@ -80,7 +86,7 @@ struct GlobalConfig
 
   String firmware = ""; // accepts from setup()
   // System_Information
-  String fwdate = "24.02.2024";
+  String fwdate = "25.03.2024";
   String chipID = "";
   String MacAdr = "";
 
@@ -139,6 +145,9 @@ extern EEP_Data eep_data;
 //=======================================================================
 struct Flag
 {
+  bool BTSET = false;
+  bool BTUP = false;
+  bool BTDWN = false;
   bool debug = true;
   bool SMS1 = true;
   bool SMS2 = true;

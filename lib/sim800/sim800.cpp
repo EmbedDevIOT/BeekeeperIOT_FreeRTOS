@@ -8,7 +8,7 @@ String _response = "";
 void sim800_init(u_long speed, uint8_t rx_pin, uint8_t tx_pin)
 {
     SIM800.begin(speed, SERIAL_8N1, rx_pin, tx_pin);
-    Serial.println("SIM800_started");
+    Serial.println("SIM800_init...");
 }
 
 /*******************************************************************************************************/
