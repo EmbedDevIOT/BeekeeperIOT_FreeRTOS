@@ -70,11 +70,12 @@ DallasTemperature ds18b20(&oneWire);
 
 // Freertos Create Task object
 TaskHandle_t Task0; // Task pinned to Core 0
-TaskHandle_t Task1; // Task pinned to Core 1
+TaskHandle_t Task1; // Task pinned to Core 0
 TaskHandle_t Task2; // Task pinned to Core 1 (every 500 ms)
 TaskHandle_t Task3; // Task pinned to Core 1 (every 1000 ms)
+TaskHandle_t Task4; // Task pinned to Core 0 (every 5000 ms)
 // FreeRTOS create Mutex link
-SemaphoreHandle_t uart_mutex;
+SemaphoreHandle_t call_mutex;
 
 //=======================================================================
 
@@ -94,6 +95,7 @@ void TaskCore0(void *pvParameters);
 void TaskCore1(void *pvParameters);
 void Task500ms(void *pvParameters);
 void Task1000ms(void *pvParameters);
+void Task5s(void *pvParameters);
 
 //=======================================================================
 
@@ -122,48 +124,51 @@ void TaskCore1(void *pvParameters)
   Serial.println(xPortGetCoreID());
   for (;;)
   {
-    IncommingRing();
-
+    
+    xSemaphoreTake(call_mutex, portMAX_DELAY);
     if (!ST.Call_Block)
       ButtonHandler();
+    xSemaphoreTake(call_mutex, portMAX_DELAY);
 
     vTaskDelay(100 / portTICK_PERIOD_MS);
   }
 }
 
-// Core 1 | Every 1000ms Read RTC Data and Display control (Update/ON/OFF)
+// Core 1 | Every 500ms Read RTC Data and Notification
 void Task500ms(void *pvParameters)
 {
-  Serial.print("Task300 running on core ");
+  Serial.print("Task500ms running on core ");
   Serial.println(xPortGetCoreID());
   while (true)
   {
-    Clock = RTC.getTime();
+    xSemaphoreTake(call_mutex, portMAX_DELAY);
+    IncommingRing();
     Notification();
+    Clock = RTC.getTime();
+    xSemaphoreTake(call_mutex, portMAX_DELAY);
 
-    vTaskDelay(1000 / portTICK_RATE_MS);
+    vTaskDelay(500 / portTICK_RATE_MS);
   }
 }
 
 // Task every 1000ms (Get Voltage and Show Debug info)
-
 void Task1000ms(void *pvParameters)
 {
   Serial.print("Task1000 running on core ");
   Serial.println(xPortGetCoreID());
   while (1)
   {
-    if (tim_sec == 5)
-    {
-      if (!ST.Call_Block)
-      {
-        GetBatVoltage();
-        GetBMEData();
-        GetDSData();
-        // GetLevel();
-      }
-      tim_sec = 0;
-    }
+    // if (tim_sec == 5)
+    // {
+    //   if (!ST.Call_Block)
+    //   {
+    //     GetBatVoltage();
+    //     GetBMEData();
+    //     GetDSData();
+    //     // GetLevel();
+    //   }
+    //   tim_sec = 0;
+    // }
 
     if (System.DispState)
     {
@@ -199,8 +204,23 @@ void Task1000ms(void *pvParameters)
       // xSemaphoreGive(uart_mutex);
     }
 #endif
-    tim_sec++;
+    // tim_sec++;
     vTaskDelay(1000 / portTICK_PERIOD_MS);
+  }
+}
+
+void Task5s(void *pvParametrs)
+{
+  while (1)
+  {
+    if (!ST.Call_Block)
+    {
+      GetBatVoltage();
+      GetBMEData();
+      GetDSData();
+      // GetLevel();
+    }
+    vTaskDelay(5000 / portTICK_PERIOD_MS);
   }
 }
 
@@ -529,7 +549,7 @@ void setup()
 
   disp.update();
 
-  uart_mutex = xSemaphoreCreateMutex();
+  call_mutex = xSemaphoreCreateMutex();
   // FreeRTOS
   // Create Task. Running to core 0
   xTaskCreatePinnedToCore(
@@ -566,12 +586,22 @@ void setup()
 
   xTaskCreatePinnedToCore(
       Task1000ms,
-      "Task30",
+      "Task3",
       2048,
       NULL,
       1,
       &Task3,
       1);
+
+  xTaskCreatePinnedToCore(
+      Task5s,
+      "Task4",
+      2048,
+      NULL,
+      1,
+      &Task4,
+      0);
+
   Serial.println(F("FreeRTOS task create...Done"));
 }
 
