@@ -139,7 +139,7 @@ struct EEP_Data
   float g_contain = 0.0;
   int8_t t1_sms = 0;
   int8_t t2_sms = 0;
-  int8_t num[10] = {9, 5, 0, 6, 0, 4, 5, 5, 6, 5};
+  int8_t num[10] = {9, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 };
 extern EEP_Data eep_data;
 //=======================================================================

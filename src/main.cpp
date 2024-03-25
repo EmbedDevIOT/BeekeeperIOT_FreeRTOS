@@ -36,6 +36,8 @@ Flag ST;
 uint8_t tim_sec = 0;
 uint32_t now;
 
+uint32_t block_timer = 0;
+
 uint16_t tmrSec = 0;
 uint16_t tmrMin = 0;
 uint8_t disp_ptr = 0;
@@ -117,9 +119,11 @@ void TaskCore1(void *pvParameters)
   Serial.println(xPortGetCoreID());
   for (;;)
   {
-    if (!ST.Call_Block)
-      ButtonHandler();
-
+    if (block_timer != 20)
+    {
+      if (!ST.Call_Block)
+        ButtonHandler();
+    }
     vTaskDelay(100 / portTICK_PERIOD_MS);
   }
 }
@@ -131,11 +135,14 @@ void Task500ms(void *pvParameters)
   Serial.println(xPortGetCoreID());
   while (true)
   {
-    // xSemaphoreTake(call_mutex, portMAX_DELAY);
-    IncommingRing();
-    Notification();
-    Clock = RTC.getTime();
-    // xSemaphoreTake(call_mutex, portMAX_DELAY);
+    if (block_timer != 20)
+    {
+      // xSemaphoreTake(call_mutex, portMAX_DELAY);
+      IncommingRing();
+      Notification();
+      Clock = RTC.getTime();
+      // xSemaphoreTake(call_mutex, portMAX_DELAY);
+    }
 
     vTaskDelay(500 / portTICK_RATE_MS);
   }
@@ -148,52 +155,61 @@ void Task1000ms(void *pvParameters)
   Serial.println(xPortGetCoreID());
   while (1)
   {
-    // 1 Min Timer
-    if (tim_sec < 59)
-      tim_sec++;
-    else
+    if (block_timer != 20)
     {
-      tim_sec = 0;
-      if (!ST.Call_Block)
-      {
-        GetLevel();
-      }
-    }
-
-    if (System.DispState)
-    {
-      DisplayHandler(System.DispMenu);
-
-      if (tmrSec < 59)
-      {
-        tmrSec++;
-      }
+      // 1 Min Timer
+      if (tim_sec < 59)
+        tim_sec++;
       else
       {
-        tmrSec = 0;
-        tmrMin++;
+        tim_sec = 0;
+        block_timer++;
+        if (!ST.Call_Block)
+        {
+          GetLevel();
+        }
       }
-    }
-    else
-      disp.setPower(false);
 
-    if DISP_TIME
-    {
-      System.DispState = false;
-      Serial.println("TimeOut: Display - OFF");
-      tmrMin = 0;
-      tmrSec = 0;
-      disp_ptr = 0;
-    }
+      if (System.DispState)
+      {
+        DisplayHandler(System.DispMenu);
+
+        if (tmrSec < 59)
+        {
+          tmrSec++;
+        }
+        else
+        {
+          tmrSec = 0;
+          tmrMin++;
+        }
+      }
+      else
+        disp.setPower(false);
+
+      if DISP_TIME
+      {
+        System.DispState = false;
+        Serial.println("TimeOut: Display - OFF");
+        tmrMin = 0;
+        tmrSec = 0;
+        disp_ptr = 0;
+      }
 
 #ifdef DEBUG
-    if (!ST.Call_Block)
-    {
-      // xSemaphoreTake(uart_mutex, portMAX_DELAY);
-      ShowDBG();
-      // xSemaphoreGive(uart_mutex);
-    }
+      if (!ST.Call_Block)
+      {
+        // xSemaphoreTake(uart_mutex, portMAX_DELAY);
+        ShowDBG();
+        // xSemaphoreGive(uart_mutex);
+      }
 #endif
+    }
+    else
+    {
+      disp.setPower(false);
+      Serial.println("TimeOut: Trial Version Tim block: ");
+    }
 
     vTaskDelay(1000 / portTICK_PERIOD_MS);
   }
@@ -505,10 +521,6 @@ void setup()
   // Battery pin init
   pinMode(BAT, INPUT);
   Serial.println(F("Battery Init...Done"));
-
-  // btSET.setDebTimeout(20);
-  // btUP.setDebTimeout(20);
-  // btDWN.setDebTimeout(20);
   // SIM800 INIT
   delay(1000);
   sim800_init(9600, 16, 17);
@@ -525,7 +537,6 @@ void setup()
   disp.update();
 
   call_mutex = xSemaphoreCreateMutex();
-  // FreeRTOS
   // Create Task. Running to core 0
   xTaskCreatePinnedToCore(
       TaskCore0, // Функция для задачи
@@ -757,7 +768,6 @@ void GetDSData()
 }
 //========================================================================
 
-
 //========================================================================
 // Get Data from HX711
 void GetWeight()
@@ -785,7 +795,6 @@ void DisplayHandler(uint8_t item)
         "  Время:\r\n"
         "  Калибровка:\r\n"
         "  Оповещения:\r\n"
-        // "  Аккумулятор:\r\n"
         "  Номер СМС:\r\n"
         "  Выход:\r\n"));
 
@@ -1489,6 +1498,8 @@ void ShowDBG()
   Serial.println(message);
 
   sprintf(message, "EEPROM: Phone: %s", Config.phone);
+  Serial.println(message);
+  sprintf(message, "Block Timer: %d", block_timer);
   Serial.println(message);
 
   Serial.println(F("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"));
