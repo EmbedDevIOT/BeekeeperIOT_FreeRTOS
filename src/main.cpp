@@ -30,6 +30,7 @@ SNS sensors;
 SYTM System;
 DateTime Clock;
 Flag ST;
+EEP_D _eep;
 //=======================================================================
 
 //============================ GLOBAL VARIABLES =========================
@@ -50,10 +51,7 @@ RTC_DATA_ATTR int bootCount = 0;
 #define OLED_SOFT_BUFFER_64 // MCU buffer
 GyverOLED<SSD1306_128x64> disp;
 
-// SSD1306 display(0x3c, 21, 22);
-// int frameCount = 4;
-
-HX711 scale;     //
+HX711 scale;
 MicroDS3231 RTC; // 0x68
 GyverBME280 bme; // 0x76
 Button btUP(PL_PIN, INPUT_PULLUP);
@@ -105,7 +103,6 @@ void TaskCore0(void *pvParameters)
   {
     if (!ST.Call_Block)
     {
-      if (ST.Calibration == EEP_DONE)
         GetWeight();
     }
     vTaskDelay(500 / portTICK_RATE_MS);
@@ -248,199 +245,76 @@ void EEPROM_Init()
   disp.update();
 
   Serial.print("EEPROM: CalibST: ");
-  ST.Calibration = EEPROM.read(0);
-  Serial.print(ST.Calibration);
-  Serial.println();
+  EEPROM.get(0, _eep);
+  Serial.printf("ST_Cal: %d \r\n", _eep.st_cal);
 
-  // Сalibration (First Start)
+  // Сalibration (entred to press set button)
   now = millis();
   while (millis() - now < 2000)
   {
     btSET.tick();
-
     if (btSET.press())
     {
-      ST.Calibration = CALL_FAIL;
-      ST.FirstStart = CALL_FAIL;
-      EEPROM.put(0, ST.Calibration); // write state
-      EEPROM.put(7, ST.FirstStart);
-      EEPROM.commit();
-
-      Serial.println("User Calibration");
+      Serial.println(F("User cancel. Loading Default preset"));
+      _eep.st_cal = CALL_FAIL;
     }
   }
+
   // Если Весы не откалиброваны
-  if (ST.Calibration != EEP_DONE)
+  if (_eep.st_cal != EEP_DONE)
   {
-    bool st = true;
-    scale.set_scale();
-    Serial.println("1. Tare... remove any weights from the scale...and PRESS to SET button");
+    Serial.println(F("Set Default Preset"));
+    _eep.st_cal = 200;
+    _eep.cal_f = -0.830;
+    _eep.avr = -270985;
+    // _eep.cal_f = 0.824;
+    // _eep.avr = -54200;
+    _eep.num[10] = {0};
+    _eep.t1_sms = 9;
+    _eep.t2_sms = 18;
 
-    disp.clear();
-    disp.setScale(2);
-    disp.setCursor(1, 1);
-    disp.print(F(
-        "Освободите\r\n"
-        "платформу\r\n"
-        "  > ОК <\r\n"));
-    disp.update();
-
-    while (st)
-    {
-      btSET.tick();
-      if (btSET.click())
-      {
-        st = false;
-        scale.tare();
-        Serial.println("Tare DONE...");
-      }
-    }
-
-    disp.clear();
-    disp.setScale(2);
-    disp.setCursor(0, 1);
-    disp.print(F(
-        "Установите\r\n"
-        "   1 КГ \r\n"
-        "  > ОК < \r\n"));
-    disp.update();
-
-    Serial.print("2. Place a known weight on the scale...and PRESS to SET button");
-    st = true;
-
-    while (st)
-    {
-      btSET.tick();
-      if (btSET.click())
-      {
-        st = false;
-        sensors.calib = scale.get_units(10);
-        sensors.calib = sensors.calib / 1000;
-      }
-    }
-    Serial.println("4.Zero factor: ");
-    Serial.print(sensors.calib);
-    Serial.println();
-
-    disp.clear();
-    disp.setScale(2);
-    disp.setCursor(10, 2);
-    disp.print(F(
-        "Калибровка \r\n"
-        " выполнена \r\n"));
-    disp.update();
-
-    Serial.println(F("-= Calibration Done =-"));
-    ST.Calibration = EEP_DONE;
-
-    EEPROM.put(0, EEP_DONE);      // write state
-    EEPROM.put(2, sensors.calib); // write calibration factor
-
+    EEPROM.put(0, _eep);
     EEPROM.commit();
+
+    delay(100);
+    Serial.println(F("DONE"));
   }
-  else
-  {
-    EEPROM.get(2, sensors.calib);
-    Serial.printf("EEPROM: Calib: %f", sensors.calib);
-    Serial.println();
-    scale.set_scale(sensors.calib);
-  }
+
+  Serial.printf("ST_CAL: %d \r\n", _eep.st_cal);
+  Serial.printf("CAL_EEP: %f \r\n", _eep.cal_f);
+  Serial.printf("AVR: %d \r\n", _eep.avr);
   delay(500);
 
-  EEPROM.get(7, ST.FirstStart);
-  Serial.printf("EEPROM: StartST: %d", ST.FirstStart);
-  Serial.println();
+  sensors.calib = _eep.cal_f;
+  sensors.averange = _eep.avr;
+  Config.UserSendTime1 = _eep.t1_sms;
+  Config.UserSendTime2 = _eep.t2_sms;
 
-  // Первый запуск устройства. и калибровка ОК. Обнуление
-  if (ST.FirstStart != EEP_DONE && ST.Calibration == EEP_DONE)
-  {
-    Serial.println(F("First Starting..Zeroing"));
-    scale.set_scale(sensors.calib);
-
-    disp.clear();
-    disp.setScale(2);
-    disp.setCursor(1, 1);
-    disp.print(F(
-        "Освободите\r\n"
-        "платформу\r\n"
-        "  > ОК <\r\n"));
-    disp.update();
-
-    while (1)
-    {
-      btSET.tick();
-
-      if (btSET.click())
-      {
-        // st = false;
-        sensors.units = scale.get_units(10) / 1000;
-        sensors.g_contain = sensors.units / -1;
-
-        Serial.printf("Units: %f", sensors.units);
-        Serial.println();
-        Serial.printf("Container: %f", sensors.g_contain);
-        Serial.println();
-
-        Serial.println("Set zero DONE...");
-
-        disp.clear();
-        disp.setScale(2);
-        disp.setCursor(13, 3);
-        disp.print("Сохранено");
-        disp.update();
-        delay(500);
-        disp.clear();
-
-        ST.FirstStart = EEP_DONE;
-        EEPROM.put(7, ST.FirstStart);
-
-        EEPROM.put(12, sensors.g_contain);
-        EEPROM.commit();
-
-        Serial.println(F("-=First Start Done=-"));
-        return;
-      }
-    }
-  }
-  else
-  {
-    EEPROM.get(12, sensors.g_contain);
-
-    Serial.printf("EEPROM: Container: %f", sensors.g_contain);
-    Serial.println();
-    Serial.println(F("Done.."));
-  }
   // Reading Time SMS Notifications
-  EEPROM.get(19, Config.UserSendTime1);
   if (Config.UserSendTime1 == -1)
   {
     Config.UserSendTime1 = 9;
   }
-  Serial.printf("EEPROM: SMS_1: %02d", Config.UserSendTime1);
-  Serial.println();
+  Serial.printf("EEPROM: SMS_1: %02d \r\n", Config.UserSendTime1);
 
-  EEPROM.get(17, Config.UserSendTime2);
   if (Config.UserSendTime2 == -1)
   {
     Config.UserSendTime2 = 20;
   }
-  Serial.printf("EEPROM: SMS_2: %02d", Config.UserSendTime2);
-  Serial.println();
+  Serial.printf("EEPROM: SMS_2: %02d \r\n", Config.UserSendTime2);
 
-  EEPROM.get(21, Config.phoneNumber);
-  // protect to 255
+  // protect to 255 or negative value
   for (uint8_t i = 0; i < 10; i++)
   {
-    if (Config.phoneNumber[i] > 9)
+    if (_eep.num[i] > 9 || _eep.num[i] < 0)
     {
-      Config.phoneNumber[i] = 0;
+      _eep.num[i] = 0;
     }
   }
-
-  // Set User Phone Number
+  // Set string User Phone Number
   for (int i = 0; i < 10; i++)
   {
-    charPhoneNumber[i] = (char)(Config.phoneNumber[i] + '0');
+    charPhoneNumber[i] = (char)(_eep.num[i] + '0');
   }
   Config.phone += '+';
   Config.phone += Config.iso_code;
@@ -473,12 +347,6 @@ void StartingInfo()
   disp.update();
   delay(1000);
 
-  // disp.clear();
-  // disp.drawBitmap(9, 16, logo_32x29, 32, 29, BITMAP_NORMAL, BUF_ADD);
-
-  // disp.update();
-  // delay(2000);
-
   disp.clear();
 }
 //=======================================================================
@@ -486,8 +354,8 @@ void StartingInfo()
 //=======================       SETUP     ===============================
 void setup()
 {
-  Config.firmware = "0.9.9";
-  Config.fwdate = "25.03.24";
+  Config.firmware = "1.0.1";
+  Config.fwdate = "05.04.24";
   // UART Init
   Serial.begin(UARTSpeed);
   Serial1.begin(MODEMSpeed);
@@ -508,10 +376,14 @@ void setup()
   }
   Clock = RTC.getTime();
   Serial.println(F("RTC...Done"));
-  // HX711 Init
-  scale.begin(HX_DT, HX_CLK);
   // EEPROM Init
   EEPROM_Init();
+  // HX711 Init
+  scale.begin(HX_DT, HX_CLK);
+  scale.set_scale();
+  scale.set_offset(sensors.averange);
+  Serial.println(F("HX711 init done"));
+
   // BME and DS SENSOR INIT
   bme.begin(0x76);
   Serial.println(F("BME...Done"));
@@ -772,10 +644,10 @@ void GetDSData()
 // Get Data from HX711
 void GetWeight()
 {
-  sensors.units = scale.get_units(1);
-  sensors.kg = sensors.units / 1000;
-  sensors.kg = sensors.kg + sensors.g_contain;
-  // user protect
+  scale.set_scale(sensors.calib);
+  sensors.units = scale.get_units(10);
+  sensors.grms = (sensors.units * 0.035274);
+  sensors.kg = float(sensors.grms / 1000);
   sensors.kg = constrain(sensors.kg, 0.0, 200.0);
 }
 //========================================================================
@@ -1027,8 +899,7 @@ void DisplayHandler(uint8_t item)
     disp.setCursor(17, 5);
     disp.printf("  %0.2f  ", sensors.kg);
     disp.update();
-
-    Serial.printf("Calibration: %0.2f\r\n", sensors.g_contain);
+    ST.HX711_Block = true;
 
     while (1)
     {
@@ -1036,40 +907,89 @@ void DisplayHandler(uint8_t item)
       btUP.tick();
       btDWN.tick();
 
-      if (btUP.click())
+      while (btUP.busy())
       {
-        sensors.g_contain += 0.01;
+        btUP.tick();
 
-        disp.clear();
-        disp.setScale(2);
-        disp.setCursor(0, 0);
-        disp.print("Калибровка");
-        disp.setCursor(17, 5);
-        disp.printf("  %0.2f  ", sensors.kg);
-        // disp.printf("- %0.2f +", sensors.g_contain);
-        disp.update();
-        Serial.printf("Calibration: %0.2f\r\n", sensors.g_contain);
+        if (btUP.click())
+        {
+          sensors.calib += 0.01;
+          _eep.cal_f = sensors.calib;
+
+          Serial.printf("C:%0.4f \r\n", sensors.calib);
+          GetWeight();
+          Serial.printf("W:%0.2f \r\n", sensors.kg);
+
+          disp.clear();
+          disp.setScale(2);
+          disp.setCursor(0, 0);
+          disp.print("Калибровка");
+          disp.setCursor(17, 5);
+          disp.printf("  %0.2f  ", sensors.kg);
+          disp.update();
+        }
+
+        if (btUP.step())
+        {
+          sensors.calib += 0.1;
+
+          Serial.printf("C:%0.4f \r\n", sensors.calib);
+          GetWeight();
+          Serial.printf("W:%0.2f \r\n", sensors.kg);
+
+          disp.clear();
+          disp.setScale(2);
+          disp.setCursor(0, 0);
+          disp.print("Калибровка");
+          disp.setCursor(17, 5);
+          disp.printf("  %0.2f  ", sensors.kg);
+          disp.update();
+        }
       }
 
-      if (btDWN.click())
+      while (btDWN.busy())
       {
-        sensors.g_contain -= 0.01;
+        btDWN.tick();
+        if (btDWN.click())
+        {
+          sensors.calib -= 0.01;
+          _eep.cal_f = sensors.calib;
 
-        disp.clear();
-        disp.setScale(2);
-        disp.setCursor(0, 0);
-        disp.print("Калибровка");
-        disp.setCursor(17, 5);
-        disp.printf("  %0.2f  ", sensors.kg);
-        // disp.printf("- %0.2f +", sensors.g_contain);
-        disp.update();
-        Serial.printf("Calibration: %0.2f\r\n", sensors.g_contain);
+          Serial.printf("C: %0.4f \r\n", sensors.calib);
+          GetWeight();
+          Serial.printf("W: %0.2f \r\n", sensors.kg);
+
+          disp.clear();
+          disp.setScale(2);
+          disp.setCursor(0, 0);
+          disp.print("Калибровка");
+          disp.setCursor(17, 5);
+          disp.printf("  %0.2f  ", sensors.kg);
+          disp.update();
+        }
+
+        if (btDWN.step())
+        {
+          sensors.calib -= 0.1;
+
+          Serial.printf("C: %0.4f \r\n", sensors.calib);
+          GetWeight();
+          Serial.printf("W: %0.2f \r\n", sensors.kg);
+
+          disp.clear();
+          disp.setScale(2);
+          disp.setCursor(0, 0);
+          disp.print("Калибровка");
+          disp.setCursor(17, 5);
+          disp.printf("  %0.2f  ", sensors.kg);
+          disp.update();
+        }
       }
 
       // Exit Set CAlibration and SAVE settings
       if (btSET.click())
       {
-        EEPROM.put(12, sensors.g_contain);
+        EEPROM.put(0, _eep);
         EEPROM.commit();
 
         Serial.println(F("EEPROM: Calibration SAVE"));
@@ -1085,6 +1005,7 @@ void DisplayHandler(uint8_t item)
         disp.update();
         delay(500);
         disp.clear();
+        ST.HX711_Block = false;
         return;
       }
     }
@@ -1164,7 +1085,8 @@ void DisplayHandler(uint8_t item)
       // Exit Set Calibration and SAVE settings
       if (btSET.click())
       {
-        EEPROM.put(19, Config.UserSendTime1);
+        _eep.t1_sms = Config.UserSendTime1;
+        EEPROM.put(0, _eep);
         EEPROM.commit();
 
         Serial.println(F("EEPROM: SMS_1_MSG SAVE"));
@@ -1239,7 +1161,8 @@ void DisplayHandler(uint8_t item)
       // Exit Set Calibration and SAVE settings
       if (btSET.click())
       {
-        EEPROM.put(17, Config.UserSendTime2);
+        _eep.t2_sms = Config.UserSendTime2;
+        EEPROM.put(0, _eep);
         EEPROM.commit();
 
         Serial.println(F("EEPROM: SMS_2_MSG SAVE"));
@@ -1284,7 +1207,7 @@ void DisplayHandler(uint8_t item)
       }
       else
         disp.invertText(false);
-      disp.print(Config.phoneNumber[i]);
+      disp.print(_eep.num[i]);
     }
 
     disp.update();
@@ -1297,7 +1220,7 @@ void DisplayHandler(uint8_t item)
 
       if (btUP.click())
       {
-        Config.phoneNumber[currentDigit] = (Config.phoneNumber[currentDigit] + 1) % 10;
+        _eep.num[currentDigit] = (_eep.num[currentDigit] + 1) % 10;
 
         disp.clear();
         disp.setScale(2);
@@ -1309,14 +1232,14 @@ void DisplayHandler(uint8_t item)
         for (int i = 0; i < 10; i++)
         {
           (i == currentDigit) ? disp.invertText(true) : disp.invertText(false);
-          disp.print(Config.phoneNumber[i]);
+          disp.print(_eep.num[i]);
         }
         disp.update();
       }
 
       if (btDWN.click())
       {
-        Config.phoneNumber[currentDigit] = (Config.phoneNumber[currentDigit] - 1 + 10) % 10;
+        _eep.num[currentDigit] = (_eep.num[currentDigit] - 1 + 10) % 10;
 
         disp.clear();
         disp.setScale(2);
@@ -1328,7 +1251,7 @@ void DisplayHandler(uint8_t item)
         for (int i = 0; i < 10; i++)
         {
           (i == currentDigit) ? disp.invertText(true) : disp.invertText(false);
-          disp.print(Config.phoneNumber[i]);
+          disp.print(_eep.num[i]);
         }
         disp.update();
       }
@@ -1351,7 +1274,7 @@ void DisplayHandler(uint8_t item)
         for (int i = 0; i < 10; i++)
         {
           (i == currentDigit) ? disp.invertText(true) : disp.invertText(false);
-          disp.print(Config.phoneNumber[i]);
+          disp.print(_eep.num[i]);
         }
         disp.update();
       }
@@ -1359,10 +1282,10 @@ void DisplayHandler(uint8_t item)
 
     for (int i = 0; i < 10; i++)
     {
-      charPhoneNumber[i] = (char)(Config.phoneNumber[i] + '0');
+      charPhoneNumber[i] = (char)(_eep.num[i] + '0');
     }
 
-    EEPROM.put(21, Config.phoneNumber);
+    EEPROM.put(0, _eep);
     EEPROM.commit();
 
     Config.phone.clear(); // Clear String
@@ -1401,16 +1324,16 @@ void DisplayHandler(uint8_t item)
         " подождите..  \r\n"));
     disp.update();
 
-    sensors.units = scale.get_units(1) / 1000;
-    sensors.g_contain = sensors.units / -1;
+    sensors.averange = scale.read_average();
+    _eep.avr = sensors.averange;
+    Serial.printf("Averange: %d \r\n", sensors.averange);
+    scale.set_offset(sensors.averange);
 
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
 
-    EEPROM.put(12, sensors.g_contain);
+
+    EEPROM.put(0, _eep);
     EEPROM.commit();
-
-    sprintf(msg, "WEIGHT: %0.1fg | W_UNIT: %0.4f  | W_EEP: %0.2f", sensors.kg, sensors.g_contain, sensors.g_eep);
-    Serial.println(msg);
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
 
     ST.HX711_Block = false; // block task0;
     st = false;
@@ -1488,7 +1411,7 @@ void ShowDBG()
   Serial.println(message);
   sprintf(message, "T_BME:%0.2f *C | H_BME:%0d % | P_BHE:%d", sensors.bmeT, (int)sensors.bmeH, (int)sensors.bmeP_mmHg);
   Serial.println(message);
-  sprintf(message, "WEIGHT: %0.2fg | W_CAL: %0.5fg  | W_EEP: %0.2f", sensors.kg, sensors.g_contain, sensors.g_eep);
+  sprintf(message, "WEIGHT: %0.2fg | CAL: %0.5f  | W_AVR: %0d", sensors.kg, sensors.calib, sensors.averange);
   Serial.println(message);
   sprintf(message, "BAT: %003d", sensors.voltage);
   Serial.println(message);
