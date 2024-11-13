@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="author" content="EmbedDev">
+    <title>Настройки точки доступа табло 0840 (Wi-Fi GUI)</title>
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
+    <link rel="stylesheet" href="css/reset.css?v=2.1">
+    <link rel="stylesheet" href="css/style.css?v=2.1">
+    <script src='js/server.js'></script>
+</head>
+
+<body onload="StartNetConfig()">
+    <header>
+        <div class="container-sm">
+            <div class="row">
+                <div>
+                    <h2 class="title">
+                        Wi-Fi настройки
+                        <!-- <p>Сброс настроек до заводских возможен удержанием кнопок №1+№5 (две крайние одновременно) в течение 20сек.</p> -->
+                    </h2>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <div class="wi-fi">
+            <div class="settings-container">
+
+                <div class="settings_item">
+                    <div class="settings_inner">
+                        <div class="row">
+                            <div>
+                                <div class="headline">
+                                    <span>Текущее состояние Wi-Fi</span>
+                                </div>
+                                <div>
+                                    <table>
+                                        <tbody>
+                                            <tr>
+                                                <td>
+                                                    IP адрес:
+                                                </td>
+                                                <td>
+                                                    <div>
+                                                        <output class="E ms-2" id="wifiip" value="NA"></output>
+                                                    </div>
+                                                </td>
+                                            </tr>
+
+                                            <tr>
+                                                <td>
+                                                    Сеть:
+                                                </td>
+                                                <td>
+                                                    <div>
+                                                        <output class="E ms-2" id="netname" value="NA">
+                                                        </output>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings_item">
+                    <div class="settings_inner">
+                        <div class="row">
+                            <div>
+                                <div class="headline">
+                                    <span>Настройки Wi-Fi</span>
+                                </div>
+                                <div>
+                                    <div class="mt-3 text-white text-center">
+                                        <label class="label-text" for="ssid">Имя точки доступа</label>
+                                        <div class="input-group">
+                                            <input type="text" class="input"
+                                                id="ssid_name" name="netname">
+                                        </div>
+                                    </div>
+                                    <div class="mt-3 mb-4 text-white text-center">
+                                        <label class="label-text" for="pass">Пароль</label>
+                                        <div class="input-group">
+                                            <input type="text" class="input"
+                                                id="pass">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="">
+                                    <button type="button" class="but"
+                                        onclick="BWiFiUPD(this)">Сохранить настройки подключения
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <a href="index.html" class="but but_link" type="button"> Вернуться на главную страницу </a>
+            </div>
+        </div>
+    </main>
+    <div class="footer">
+        <div>
+            <a href="https://retra.pro/" class="text-white">ООО «РЭТРА»</a>, 2024
+        </div>
+        S/N:
+        <output class="text-white" id="sn" value="NA"> </output>
+        F/W:
+        <output class="text-white" id="firmware" value="NA"></output>
+        
+    </div>
+
+</body>

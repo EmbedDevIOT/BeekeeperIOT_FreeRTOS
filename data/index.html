@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="author" content="EmbedDev">
+    <title>Настройки табло 0845 (Wi-Fi GUI)</title>
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
+    <link rel="stylesheet" href="css/reset.css?v=2.1">
+    <link rel="stylesheet" href="css/style.css?v=2.1">
+    <script src='js/server.js'></script>
+</head>
+
+<body onload="StartIndex()">
+    <header>
+        <div class="container-sm">
+            <div class="row">
+                <div>
+                    <h2 class="title">
+                        Умный улей (Wi-Fi GUI) v1.0
+                        <p> Задайте нужные значения и нажмите любую из кнопок
+                            "Сохранить все настройки". Обновление информации на табло займёт около 10с.</p>
+                    </h2>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <div class="">
+            <div class="settings-container">
+                <div class="settings_item" style="background: #F0FAFF">
+                    <div class="settings_inner">
+                        <div class="headline">
+                            <span>Настройки системы</span>
+                        </div>
+                        <div>
+                            <br />
+                            <div class="col mt-3">
+
+                                <div class="label-text">
+                                    <span>Время</span>
+                                </div>
+
+                                <div class="">
+                                    <div class="input-group">
+                                        <input type="time" class="input" id="time" name="TimRTC" />
+                                    </div>
+                                </div>
+
+                                <div class="label-text">
+                                    <span>Дата</span>
+                                </div>
+
+                                <div class="">
+                                    <div class="input-group">
+                                        <input type="date" class="input" id="date" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col d-grid gap-2">
+                                <button type="button" class="but but-save" style="background: #da8300"
+                                    onclick="BTimeUPD(this)">Задать время
+                                </button>
+                            </div>
+
+
+
+                            <div class="col d-grid gap-2" style="margin-top: 25px;">
+                                <button type="button" class="but but-save" style="background: #da8300"
+                                    onclick="BTimeAutoSet(this)">Синхронизировать время с браузером
+                                </button>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings_item" style="background: #F0FFFA">
+                    <div class="settings_inner">
+                        <div class="headline">
+                            <span>Настройки улья</span>
+                        </div>
+                        <div class=" col mt-3">
+
+                            <div>
+                                <div class="label-text">
+                                    Номер абонента для отправки СМС
+                                </div>
+                                <div class="input-group">
+                                    <input type="number" class="input" id="phone" name="TimRTC" />
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="label-text">
+                                    Время отправки СМС 1
+                                </div>
+                                <div class="input-group">
+                                    <input type="time" class="input" id="sms1" name="TimSMS1" />
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="label-text">
+                                    Время отправки СМС 2
+                                </div>
+                                <div class="input-group">
+                                    <input type="time" class="input" id="sms2" name="TimSMS2" />
+                                </div>
+                            </div>
+
+
+                            <div>
+                                <div class="label-text">
+                                    Температура внутренняя (левее)
+                                </div>
+                                <div class="input-group">
+                                    <select class="input" id="c_tempin">
+                                        <option value="5">БЕЛЫЙ</option>
+                                        <option value="6">ЖЕЛТЫЙ</option>
+                                        <option value="1">ЗЕЛЕНЫЙ</option>
+                                        <option value="0">КРАСНЫЙ</option>
+                                        <option value="3">МОРСКАЯ ВОЛНА</option>
+                                        <option value="7">ПУРПУРНЫЙ</option>
+                                        <option value="2">СИНИЙ</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="label-text">
+                                    Температура внешняя (правее)
+                                </div>
+                                <div class="input-group">
+                                    <select class="input" id="c_tempout">
+                                        <option value="5">БЕЛЫЙ</option>
+                                        <option value="6">ЖЕЛТЫЙ</option>
+                                        <option value="1">ЗЕЛЕНЫЙ</option>
+                                        <option value="0">КРАСНЫЙ</option>
+                                        <option value="3">МОРСКАЯ ВОЛНА</option>
+                                        <option value="7">ПУРПУРНЫЙ</option>
+                                        <option value="2">СИНИЙ</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="label-text">
+                                    Скорость
+                                </div>
+                                <div class="input-group">
+                                    <select class="input" id="c_speed">
+                                        <option value="5">БЕЛЫЙ</option>
+                                        <option value="6">ЖЕЛТЫЙ</option>
+                                        <option value="1">ЗЕЛЕНЫЙ</option>
+                                        <option value="0">КРАСНЫЙ</option>
+                                        <option value="3">МОРСКАЯ ВОЛНА</option>
+                                        <option value="7">ПУРПУРНЫЙ</option>
+                                        <option value="2">СИНИЙ</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="col d-grid gap-2">
+                                <button type="button" class="but but-save" onclick="AllDataUPD(this)">Сохранить все
+                                    настройки
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div>
+                <a href="sys_settings.html" class="but but_link" type="button" style="background: #da8300">Настройки
+                    системы</a>
+                <a href="wificonfig.html" class="but but_link" type="button">Настройки Wi-Fi</a>
+            </div>
+            <!-- <div>
+                <button type="button" class="but but_link" type="button" style="background: #15781d"
+                    onclick="BTellmeTime(this)">Произнести время
+                </button>
+            </div> -->
+        </div>
+    </main>
+
+
+
+    <br />
+    <header>
+        <div class="container-sm">
+            <div class="row">
+                <div>
+                    <h2 class="title">
+                        <p>Список комбинаций нажатий кнопок (для управления табло без Wi-Fi) можно посмотреть <a
+                                href="shortcuts.html">на этой странице</a>.</p>
+                    </h2>
+                </div>
+            </div>
+        </div>
+    </header>
+
+
+
+
+    <div class="footer">
+        <div>
+            <a href="https://retra.pro/" class="text-white">ООО «РЭТРА»</a>, 2024
+        </div>
+        S/N:
+        <output class="text-white" id="sn" value="NA"> </output>
+        F/W:
+        <output class="text-white" id="firmware" value="NA"></output>
+
+    </div>
+
+</body>
+
+</html>

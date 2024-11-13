@@ -1,6 +1,8 @@
 #include "Config.h"
+
+#include "WF.h"
+#include "HTTP.h"
 #include "sim800.h"
-#include "button.h"
 
 //=======================================================================
 
@@ -10,22 +12,11 @@
 
 #define DISP_TIME (tmrMin == 10 && tmrSec == 0)
 #define ITEMS 5 // Main Menu Items
-
-// GPIO PINs
-#define SET_PIN 18 // кнопкa Выбор
-#define PL_PIN 19  // кнопкa Плюс
-#define MN_PIN 5   // кнопкa Минус
-
-#define DS_SNS 4  // ds18b20
-#define BAT 34    // Аккумулятор
-#define TX_PIN 17 // SIM800_TX
-#define RX_PIN 16 // SIM800_RX
-#define HX_DT 25  // HX711_DT
-#define HX_CLK 26 // HX711_CLK
 //=======================================================================
 
 //============================== STRUCTURES =============================
-GlobalConfig Config;
+// GlobalConfig Config;
+GlobalConfig CFG;
 SNS sensors;
 SYTM System;
 DateTime Clock;
@@ -54,6 +45,7 @@ GyverOLED<SSD1306_128x64> disp;
 HX711 scale;
 MicroDS3231 RTC; // 0x68
 GyverBME280 bme; // 0x76
+
 Button btUP(PL_PIN, INPUT_PULLUP);
 Button btSET(SET_PIN, INPUT_PULLUP);
 Button btDWN(MN_PIN, INPUT_PULLUP);
@@ -103,7 +95,7 @@ void TaskCore0(void *pvParameters)
   {
     if (!ST.Call_Block)
     {
-        GetWeight();
+      GetWeight();
     }
     vTaskDelay(500 / portTICK_RATE_MS);
   }
@@ -265,7 +257,8 @@ void EEPROM_Init()
   {
     Serial.println(F("Set Default Preset"));
     _eep.st_cal = 200;
-    _eep.cal_f = -0.830;
+    // _eep.cal_f = -0.830;
+    _eep.cal_f = -0.77;
     _eep.avr = -270985;
     // _eep.cal_f = 0.824;
     // _eep.avr = -54200;
@@ -287,21 +280,21 @@ void EEPROM_Init()
 
   sensors.calib = _eep.cal_f;
   sensors.averange = _eep.avr;
-  Config.UserSendTime1 = _eep.t1_sms;
-  Config.UserSendTime2 = _eep.t2_sms;
+  CFG.UserSendTime1 = _eep.t1_sms;
+  CFG.UserSendTime2 = _eep.t2_sms;
 
   // Reading Time SMS Notifications
-  if (Config.UserSendTime1 == -1)
+  if (CFG.UserSendTime1 == -1)
   {
-    Config.UserSendTime1 = 9;
+    CFG.UserSendTime1 = 9;
   }
-  Serial.printf("EEPROM: SMS_1: %02d \r\n", Config.UserSendTime1);
+  Serial.printf("EEPROM: SMS_1: %02d \r\n", CFG.UserSendTime1);
 
-  if (Config.UserSendTime2 == -1)
+  if (CFG.UserSendTime2 == -1)
   {
-    Config.UserSendTime2 = 20;
+    CFG.UserSendTime2 = 20;
   }
-  Serial.printf("EEPROM: SMS_2: %02d \r\n", Config.UserSendTime2);
+  Serial.printf("EEPROM: SMS_2: %02d \r\n", CFG.UserSendTime2);
 
   // protect to 255 or negative value
   for (uint8_t i = 0; i < 10; i++)
@@ -316,11 +309,11 @@ void EEPROM_Init()
   {
     charPhoneNumber[i] = (char)(_eep.num[i] + '0');
   }
-  Config.phone += '+';
-  Config.phone += Config.iso_code;
-  Config.phone += charPhoneNumber;
+  CFG.phone += '+';
+  CFG.phone += CFG.iso_code;
+  CFG.phone += charPhoneNumber;
   Serial.print("EEPROM: Phone: ");
-  Serial.println(Config.phone);
+  Serial.println(CFG.phone);
 
   Serial.println(F("EEPROM_INIT_Done.."));
 }
@@ -330,7 +323,7 @@ void EEPROM_Init()
 void StartingInfo()
 {
   char msg[32];
-  disp.clear(); // очистка
+  disp.clear(); 
 
   disp.setScale(2); // масштаб текста (1..4)
   disp.setCursor(10, 3);
@@ -340,12 +333,12 @@ void StartingInfo()
 
   disp.setScale(1);
   disp.setCursor(20, 7);
-  sprintf(msg, "firmware:%s", Config.firmware);
+  sprintf(msg, "firmware:%s", CFG.fw);
   disp.print(msg);
   Serial.println(msg);
 
   disp.update();
-  delay(1000);
+  vTaskDelay(1000 / portTICK_PERIOD_MS);
 
   disp.clear();
 }
@@ -354,8 +347,8 @@ void StartingInfo()
 //=======================       SETUP     ===============================
 void setup()
 {
-  Config.firmware = "1.0.1";
-  Config.fwdate = "05.04.24";
+  CFG.fw = "1.0.0";
+  CFG.fwdate = "13.11.24";
   // UART Init
   Serial.begin(UARTSpeed);
   Serial1.begin(MODEMSpeed);
@@ -376,8 +369,23 @@ void setup()
   }
   Clock = RTC.getTime();
   Serial.println(F("RTC...Done"));
+
+  // SPIFFS
+  if (!SPIFFS.begin(true))
+  {
+    Serial.println("An Error has occurred while mounting SPIFFS");
+    return;
+  }
+  LoadConfig();         // Load configuration from config.json files
+  ShowLoadJSONConfig(); // Show load configuration
+
+  // Set Serial Number
+  if (SerialNumConfig())
+    SaveConfig();
+
   // EEPROM Init
   EEPROM_Init();
+
   // HX711 Init
   scale.begin(HX_DT, HX_CLK);
   scale.set_scale();
@@ -389,12 +397,12 @@ void setup()
   Serial.println(F("BME...Done"));
   ds18b20.begin();
   Serial.println(F("DS18b20...Done"));
-  delay(20);
+  vTaskDelay(20 / portTICK_PERIOD_MS);
   // Battery pin init
   pinMode(BAT, INPUT);
   Serial.println(F("Battery Init...Done"));
   // SIM800 INIT
-  delay(1000);
+  vTaskDelay(1000 / portTICK_PERIOD_MS);
   sim800_init(9600, 16, 17);
   sim800_conf();
   Serial.println(F("SIM800 Init...Done"));
@@ -405,6 +413,14 @@ void setup()
   GetDSData();
   GetWeight();
   GetLevel();
+
+  Serial.println("Wifi init");
+  WIFIinit();
+  vTaskDelay(500 / portTICK_PERIOD_MS);
+  Serial.println("Wifi Enable");
+
+  HTTPinit(); // HTTP server initialisation
+  vTaskDelay(500 / portTICK_PERIOD_MS);
 
   disp.update();
 
@@ -588,14 +604,18 @@ void ButtonHandler()
   if (btUP.click() || btUP.hold())
   {
     Serial.println("Btn UP click");
-
     tmrMin = 0;
     tmrSec = 0;
+
     if (System.DispMenu == Menu)
       disp_ptr = constrain(disp_ptr + 1, 0, ITEMS - 1);
-    else
 
-      Serial.printf("ptr:%d", disp_ptr);
+    sensors.calib += 0.01;
+    _eep.cal_f = sensors.calib;
+
+    Serial.printf("C:%0.4f \r\n", sensors.calib);
+
+    // Serial.printf("ptr:%d \r\n", disp_ptr);
     Serial.println();
   }
 
@@ -614,8 +634,12 @@ void ButtonHandler()
     if (System.DispMenu == Menu)
       disp_ptr = constrain(disp_ptr - 1, 0, ITEMS - 1);
 
-    Serial.printf("ptr:%d", disp_ptr);
-    Serial.println();
+    sensors.calib -= 0.01;
+    _eep.cal_f = sensors.calib;
+
+    Serial.printf("C: %0.4f \r\n", sensors.calib);
+
+    // Serial.printf("ptr:%d \r\n", disp_ptr);
   }
 }
 //========================================================================
@@ -642,10 +666,11 @@ void GetDSData()
 
 //========================================================================
 // Get Data from HX711
+// Every 500 ms
 void GetWeight()
 {
   scale.set_scale(sensors.calib);
-  sensors.units = scale.get_units(10);
+  sensors.units = scale.get_units(5);
   sensors.grms = (sensors.units * 0.035274);
   sensors.kg = float(sensors.grms / 1000);
   sensors.kg = constrain(sensors.kg, 0.0, 200.0);
@@ -899,7 +924,7 @@ void DisplayHandler(uint8_t item)
     disp.setCursor(17, 5);
     disp.printf("  %0.2f  ", sensors.kg);
     disp.update();
-    ST.HX711_Block = true;
+    // ST.HX711_Block = true;
 
     while (1)
     {
@@ -1005,7 +1030,7 @@ void DisplayHandler(uint8_t item)
         disp.update();
         delay(500);
         disp.clear();
-        ST.HX711_Block = false;
+        // ST.HX711_Block = false;
         return;
       }
     }
@@ -1329,8 +1354,6 @@ void DisplayHandler(uint8_t item)
     Serial.printf("Averange: %d \r\n", sensors.averange);
     scale.set_offset(sensors.averange);
 
-
-
     EEPROM.put(0, _eep);
     EEPROM.commit();
     vTaskDelay(1000 / portTICK_PERIOD_MS);
@@ -1402,28 +1425,28 @@ void ShowDBG()
 
   Serial.println(F("!!!!!!!!!!!!!!  DEBUG INFO  !!!!!!!!!!!!!!!!!!"));
 
-  sprintf(message, "DISP:%d | ML %d | P: %d T: %02d:%02d ", System.DispState, System.DispMenu, disp_ptr, tmrMin, tmrSec);
-  Serial.println(message);
+  // sprintf(message, "DISP:%d | ML %d | P: %d T: %02d:%02d ", System.DispState, System.DispMenu, disp_ptr, tmrMin, tmrSec);
+  // Serial.println(message);
 
-  sprintf(message, "TimeRTC: %02d:%02d:%02d", Clock.hour, Clock.minute, Clock.second);
-  Serial.println(message);
-  sprintf(message, "T_DS:%0.2f *C", sensors.dsT);
-  Serial.println(message);
-  sprintf(message, "T_BME:%0.2f *C | H_BME:%0d % | P_BHE:%d", sensors.bmeT, (int)sensors.bmeH, (int)sensors.bmeP_mmHg);
-  Serial.println(message);
+  // sprintf(message, "TimeRTC: %02d:%02d:%02d", Clock.hour, Clock.minute, Clock.second);
+  // Serial.println(message);
+  // sprintf(message, "T_DS:%0.2f *C", sensors.dsT);
+  // Serial.println(message);
+  // sprintf(message, "T_BME:%0.2f *C | H_BME:%0d % | P_BHE:%d", sensors.bmeT, (int)sensors.bmeH, (int)sensors.bmeP_mmHg);
+  // Serial.println(message);
   sprintf(message, "WEIGHT: %0.2fg | CAL: %0.5f  | W_AVR: %0d", sensors.kg, sensors.calib, sensors.averange);
   Serial.println(message);
-  sprintf(message, "BAT: %003d", sensors.voltage);
-  Serial.println(message);
-  sprintf(message, "SIM800 Signal: %d", sensors.signal);
-  Serial.println(message);
-  sprintf(message, "EEPROM: SMS_1 %02d | SMS_2 %02d", Config.UserSendTime1, Config.UserSendTime2);
-  Serial.println(message);
+  // sprintf(message, "BAT: %003d", sensors.voltage);
+  // Serial.println(message);
+  // sprintf(message, "SIM800 Signal: %d", sensors.signal);
+  // Serial.println(message);
+  // sprintf(message, "EEPROM: SMS_1 %02d | SMS_2 %02d", Config.UserSendTime1, Config.UserSendTime2);
+  // Serial.println(message);
 
-  sprintf(message, "EEPROM: Phone: %s", Config.phone);
-  Serial.println(message);
-  sprintf(message, "Block Timer: %d", block_timer);
-  Serial.println(message);
+  // sprintf(message, "EEPROM: Phone: %s", Config.phone);
+  // Serial.println(message);
+  // sprintf(message, "Block Timer: %d", block_timer);
+  // Serial.println(message);
 
   Serial.println(F("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"));
   Serial.println();

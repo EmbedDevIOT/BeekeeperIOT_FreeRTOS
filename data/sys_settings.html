@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="author" content="EmbedDev">
+    <title>Системные настройки табло 0845 (Wi-Fi GUI)</title>
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
+    <link rel="stylesheet" href="css/reset.css?v=2.1">
+    <link rel="stylesheet" href="css/style.css?v=2.1">
+    <script src='js/server.js'></script>
+</head>
+
+<body onload="StartSystem()">
+    <header>
+        <div class="container-sm">
+            <div class="row">
+                <div>
+                    <h2 class="title">
+                        Настройка табло (Wi-Fi GUI) v1.0
+                        <p> Задайте нужные значения и нажмите "Сохранить системные настройки". Обновление информации на
+                            табло займёт около 10с.</p>
+                    </h2>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <div class="sys-settings">
+
+            <div class="settings-container">
+                <div class="settings_item" style="background: #F0F0F0">
+                    <div class="settings_inner">
+                        <div class="headline">
+                            <span>Системные настройки</span>
+                        </div>
+
+                        <div class="col mt-3">
+
+                            <!-- <div class="label-text">
+                                <span>Часовой пояс</span>
+                            </div>
+                            <div class="input-group">
+                                <select class="input" id="gmt">
+                                    <option value="-12">-12</option>
+                                    <option value="-11">-11</option>
+                                    <option value="-10">-10</option>
+                                    <option value="-9">-9</option>
+                                    <option value="-8">-8</option>
+                                    <option value="-7">-7</option>
+                                    <option value="-6">-6</option>
+                                    <option value="-5">-5</option>
+                                    <option value="-4">-4</option>
+                                    <option value="-3">-3</option>
+                                    <option value="-2">-2</option>
+                                    <option value="-1">-1</option>
+                                    <option value="0">0</option>
+                                    <option value="1">+1</option>
+                                    <option value="2">+2</option>
+                                    <option value="3">+3</option>
+                                    <option value="4">+4</option>
+                                    <option value="5">+5</option>
+                                    <option value="6">+6</option>
+                                    <option value="7">+7</option>
+                                    <option value="8">+8</option>
+                                    <option value="9">+9</option>
+                                    <option value="10">+10</option>
+                                    <option value="11">+11</option>
+                                    <option value="12">+12</option>
+                                </select>
+                            </div>
+
+                            <div class="label-text">
+                                <span>Время</span>
+                            </div>
+
+                            <div class="">
+                                <div class="input-group">
+                                    <input type="time" class="input" id="time" name="TimRTC" />
+                                </div>
+                            </div>
+
+                            <div class="label-text">
+                                <span>Дата</span>
+                            </div>
+                            <div class="">
+                                <div class="input-group">
+                                    <input type="date" class="input" id="date" />
+                                </div>
+                            </div> -->
+
+
+                            <div class="label-text">
+                                <span>Коррекция температуры внутренней</span>
+                            </div>
+                            <div class="input-group">
+                                <select class="input" id="t1_offset">
+                                    <option value="-15">-15</option>
+                                    <option value="-14">-14</option>
+                                    <option value="-13">-13</option>
+                                    <option value="-12">-12</option>
+                                    <option value="-11">-11</option>
+                                    <option value="-10">-10</option>
+                                    <option value="-9">-9</option>
+                                    <option value="-8">-8</option>
+                                    <option value="-7">-7</option>
+                                    <option value="-6">-6</option>
+                                    <option value="-5">-5</option>
+                                    <option value="-4">-4</option>
+                                    <option value="-3">-3</option>
+                                    <option value="-2">-2</option>
+                                    <option value="-1">-1</option>
+                                    <option value="0">0</option>
+                                    <option value="1">+1</option>
+                                    <option value="2">+2</option>
+                                    <option value="3">+3</option>
+                                    <option value="4">+4</option>
+                                    <option value="5">+5</option>
+                                    <option value="6">+6</option>
+                                    <option value="7">+7</option>
+                                    <option value="8">+8</option>
+                                    <option value="9">+9</option>
+                                    <option value="10">+10</option>
+                                    <option value="11">+11</option>
+                                    <option value="12">+12</option>
+                                    <option value="13">+13</option>
+                                    <option value="14">+14</option>
+                                    <option value="15">+15</option>
+                                </select>
+                            </div>
+
+                            <div class="label-text">
+                                <span>Коррекция температуры наружной</span>
+                            </div>
+                            <div class="input-group">
+                                <select class="input" id="t2_offset">
+                                    <option value="-15">-15</option>
+                                    <option value="-14">-14</option>
+                                    <option value="-13">-13</option>
+                                    <option value="-12">-12</option>
+                                    <option value="-11">-11</option>
+                                    <option value="-10">-10</option>
+                                    <option value="-9">-9</option>
+                                    <option value="-8">-8</option>
+                                    <option value="-7">-7</option>
+                                    <option value="-6">-6</option>
+                                    <option value="-5">-5</option>
+                                    <option value="-4">-4</option>
+                                    <option value="-3">-3</option>
+                                    <option value="-2">-2</option>
+                                    <option value="-1">-1</option>
+                                    <option value="0">0</option>
+                                    <option value="1">+1</option>
+                                    <option value="2">+2</option>
+                                    <option value="3">+3</option>
+                                    <option value="4">+4</option>
+                                    <option value="5">+5</option>
+                                    <option value="6">+6</option>
+                                    <option value="7">+7</option>
+                                    <option value="8">+8</option>
+                                    <option value="9">+9</option>
+                                    <option value="10">+10</option>
+                                    <option value="11">+11</option>
+                                    <option value="12">+12</option>
+                                    <option value="13">+13</option>
+                                    <option value="14">+14</option>
+                                    <option value="15">+15</option>
+                                </select>
+                            </div>
+                            <div class="label-text">
+                                <span>Яркость табло</span>
+                            </div>
+                            <div class="input-group">
+                                <select class="input" id="brigh">
+                                    <option value="10">10</option>
+                                    <option value="20">20</option>
+                                    <option value="30">30</option>
+                                    <option value="40">40</option>
+                                    <option value="50">50</option>
+                                    <option value="60">60</option>
+                                    <option value="70">70</option>
+                                    <option value="80">80</option>
+                                    <option value="90">90</option>
+                                    <option value="100">100</option>
+                                </select>
+                            </div>
+
+                            <div class="label-text">
+                                <span>Громкость</span>
+                            </div>
+                            <div class="input-group">
+                                <select class="input" id="volume">
+                                    <option value="5">1</option>
+                                    <option value="9">2</option>
+                                    <option value="13">3</option>
+                                    <option value="17">4</option>
+                                    <option value="21">5</option>
+                                </select>
+                            </div>
+                            <div class="col d-grid gap-2">
+                                <button type="button" class="but but-save" style="background: #da8300"
+                                    onclick="BSysUPD(this)">Сохранить системные настройки
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings_item" style="background: #F0F0F0">
+                    <div class="settings_inner">
+                        <div class="headline">
+                            <span>Настройки датчиков туалета</span>
+                        </div>
+                        <div class="label-text">
+                            <span>Логика туалетов</span>
+                        </div>
+                        <div class="input-group">
+                            <select class="input" id="wc_sens_logiq">
+                                <option value="0">Нормальная</option>
+                                <option value="1">Реверсивная</option>
+                                <option value="2">Один тамбур</option>
+                            </select>
+                        </div>
+
+                        <div class="label-text">
+                            <span>Сигнал занятости</span>
+                        </div>
+                        <div class="input-group">
+                            <select class="input" id="wc_sens_signal">
+                                <option value="1">Замкнут</option>
+                                <option value="0">Разомкнут</option>
+                            </select>
+                        </div>
+
+                        <div class="label-text">
+                            <span>Брать статус туалета инвалида с:</span>
+                        </div>
+                        <div class="input-group">
+                            <select class="input" id="wc_get_state">
+                                <option value="1">Туалет 1</option>
+                                <option value="2">Туалет 2</option>
+                            </select>
+                        </div>
+
+                        <div class="col d-grid gap-2">
+                            <button type="button" class="but but-save" style="background: #da8300"
+                                onclick="BWCLogiqUPD(this)">Сохранить настройки датчиков
+                            </button>
+                        </div>
+
+                        <!-- <div>
+                            <button type="button" class="but" id="btn_wc1" style="margin-top: 35px;"
+                                    onclick="BDoorState(1)">Озвучить Cтатус Туалет 1
+                                </button>
+                        </div>
+                        <div>
+                            <button type="button" class="but" id="btn_wc2" style="margin-top: 15px;"
+                                    onclick="BDoorState(2)">Озвучить Cтатус Туалет 2
+                                </button>
+                        </div> -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <a href="index.html" class="but but_link" type="button"> Вернуться на главную страницу </a>
+        </div>
+        </div>
+
+
+
+        <br />
+        <header>
+            <div class="container-sm">
+                <div class="row">
+                    <div>
+                        <h2 class="title">
+                            <!-- <p>Сброс настроек до заводских возможен удержанием кнопок №1+№5 (две крайние одновременно) в
+                                течение 20сек.</p> -->
+                        </h2>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+
+
+
+
+
+    </main>
+
+    <div class="footer">
+        <div>
+            <a href="https://retra.pro/" class="text-white">ООО «РЭТРА»</a>, 2024
+        </div>
+        S/N:
+        <output class="text-white" id="sn" value="NA"> </output>
+        F/W:
+        <output class="text-white" id="firmware" value="NA"></output>
+
+    </div>
+
+</body>
+
+</html>

@@ -1,0 +1,189 @@
+:root {
+    --bg: #1D6F74;
+}
+body {
+    font-weight: 700;
+    font-style: normal;
+}
+main, header, .footer {
+    width: 100%;
+    margin: 0 auto;
+    max-width: 1440px;
+    padding-left: 10px;
+    padding-right: 10px
+}
+header .title {
+    text-align: center;
+    font-size: 40px;
+    margin-bottom: 40px
+}
+header .title p {
+    margin-top: 20px;
+    font-size: .7em;
+    font-weight: 400;
+}
+.settings-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: stretch;
+    gap: 20px
+}
+.settings_item {
+    width: 100%;
+    border: 1px solid var(--bg);
+    border-radius: 5px;
+    padding: 30px 20px;
+/*    text-align: center;*/
+}
+.wi-fi .settings_item {
+    border-color: #AA0000
+}
+.wi-fi .but {
+    background: #AA0000
+}
+.settings_inner .headline {
+    font-size: 24px;
+    margin-bottom: 30px;
+    text-align: center
+}
+
+.input-group {
+    margin-bottom: 30px
+}
+.input {
+    width: 100%;
+    height: 50px;
+    border: 1px solid var(--bg);
+    border-radius: 5px;
+/*    text-align: center;*/
+    padding: 10px 20px
+}
+.label-text {
+    margin: 30px 0 10px;
+    display: block;
+}
+
+.form-check {
+    text-align: center;
+    margin-top: 25px;
+}
+.checkbox {
+    display: none
+}
+.checkbox+label {
+    cursor: pointer;
+    display: flex;
+    font-size: 16px;
+    align-items: center;
+/*    justify-content: center;*/
+}
+.checkbox+label:before {
+    content: '';
+    display: block;
+    width: 30px;
+    height: 30px;
+    flex-shrink: 0;
+    border: 1px solid var(--bg);
+    border-radius: 5px;
+    margin-right: 15px
+}
+.checkbox:checked+label:before {
+    background: var(--bg) url(../img/check.svg) center/55% no-repeat;
+}
+.but {
+    background: var(--bg);
+    width: 100%;
+    height: 50px;
+    color: #fff;
+    cursor: pointer;
+    text-align: center;
+    transition: all linear .2s;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 5px;
+}
+.but-save {
+    margin-top: auto;
+}
+.sys-settings .but-save {
+    background: #AAAA00
+}
+.but_link {
+    background: #AA0000;
+    margin-top: 30px;
+    text-decoration: none;
+}
+
+.but_link_red {
+    background: #AA0000;
+    text-decoration: none;
+}
+
+.but_link_green {
+    background: #15781d;
+    text-decoration: none;
+}
+
+.wi-fi .but_link, .sys-settings .but_link {
+    background: var(--bg)
+}
+
+
+.footer {
+    margin-top: 40px;
+    padding: 20px 0;
+    text-align: center;
+}
+
+table {
+    width: 95%;
+    text-align: left;
+}
+table td, table th {
+    padding: 7px 7px 7px 7px
+}
+/*table tr {
+    border-bottom: 1px solid #000000
+}*/
+
+@media screen and (max-width:768px) {
+    header .title {
+        font-size: 24px;
+        margin-bottom: 30px
+    }
+
+    .settings-container {
+        flex-direction: column;
+        gap: 20px
+    }
+
+    .settings_item {
+        padding: 20px 10px;
+    }
+    .settings_inner .headline {
+        font-size: 20px;
+        margin-bottom: 25px;
+    }
+
+    .label-text {
+        margin: 25px 0 10px;
+        display: block;
+    }
+}
+
+
+.alignleft {
+    float: left;
+}
+.alignright {
+    float: right;
+}
+
+
+
+
+
+
+
